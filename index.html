@@ -37,12 +37,13 @@ select,input{font:inherit;font-size:.95rem;color:var(--ink);background:#fff;bord
 .top li:nth-child(1) .pos{background:#B8860B;color:#fff}.top li:nth-child(2) .pos{background:#888;color:#fff}.top li:nth-child(3) .pos{background:#A0522D;color:#fff}
 .top .nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#444}
 .top .imp{font-weight:700}
-.cuerpo{display:grid;grid-template-columns:290px 1fr;gap:16px;margin-top:16px;align-items:start}
+.cuerpo{display:grid;grid-template-columns:200px 1fr;gap:14px;margin-top:16px;align-items:start}
 @media (max-width:900px){.cuerpo{grid-template-columns:1fr}}
-.filtros{padding:16px 20px}
-.filtros h3{margin:0 0 12px;font-size:.92rem;font-weight:500;color:var(--ink2)}
-.filtros label{display:block;font-size:.88rem;color:#555;margin:14px 0 6px}
-.filtros button{margin-top:16px;width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer}
+.filtros{padding:10px 12px}
+.filtros select,.filtros input{font-size:.8rem;padding:5px 7px;border-radius:8px}
+.filtros h3{margin:0 0 2px;font-size:.78rem;font-weight:700;color:var(--ink2)}
+.filtros label{display:block;font-size:.74rem;color:#555;margin:7px 0 3px}
+.filtros button{margin-top:9px;width:100%;font:inherit;font-size:.78rem;padding:5px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
 .lista{overflow:hidden}
 .th,.vrow{display:grid;grid-template-columns:44px 44px minmax(160px,1fr) 110px 120px 110px 140px;align-items:center;gap:8px;padding:12px 18px}
 .th{font-size:.88rem;font-weight:700;border-bottom:1px solid var(--line);background:#FAFAFA}
@@ -54,7 +55,7 @@ select,input{font:inherit;font-size:.95rem;color:var(--ink);background:#fff;bord
 .vrow.ab .chev{transform:rotate(90deg)}
 .av{width:34px;height:34px;border-radius:50%;background:#EEF0F3;color:#444;font-size:.75rem;font-weight:700;display:flex;align-items:center;justify-content:center}
 .vn{font-size:1.02rem;font-weight:500}
-.vn small{color:#999;font-weight:400;margin-left:6px}
+.vn .cod{display:inline-block;min-width:2.3em;margin-right:8px;padding:1px 7px;border-radius:6px;background:#E6F0FF;color:var(--marca);font-size:.85em;font-weight:700;text-align:center}
 .mut{color:var(--ink2);font-size:.88rem}
 .mut b{color:var(--ink);font-weight:500}
 .tot{font-weight:700}
@@ -242,7 +243,7 @@ function dibujar(){
   let h='';
   for(const v of L){ const ab=abiertos.has(v.c);
     h+=`<div class="vrow${ab?' ab':''}" data-v="${v.c}" role="button" tabindex="0" aria-expanded="${ab}"><span class="chev">›</span><span class="av">${esc(iniciales(v.n))}</span>
-      <span class="vn">${esc(v.n)}<small>#${v.c}</small></span>
+      <span class="vn"><span class="cod">${v.c}</span>${esc(v.n)}</span>
       <span class="r mut cl"><b>${v.cli.size}</b> ${v.cli.size===1?'cliente':'clientes'}</span>
       <span class="r mut op2"><b>${v.ops.size}</b> ${v.ops.size===1?'operación':'operaciones'}</span>
       <span class="r mut nc">${v.nc? `<b class="rojo">${v.nc.length}</b> de ${v.ruta.length}` : '—'}</span>
