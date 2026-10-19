@@ -142,6 +142,7 @@ footer{margin-top:18px;font-size:.78rem;color:var(--ink2);text-align:center}
 <script>
 const REPO_RAW='https://raw.githubusercontent.com/1605-83/Reporte-Diario-Ventas/main/';
 const $=id=>document.getElementById(id);
+const EXCLUIR_V=new Set([16]);   // 16 = Vendedor Deposito (pedido de Bruno, 19/10/2026)
 const fmt$=n=>'$ '+(Math.round(n*100)/100).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmt0=n=>'$ '+Math.round(n).toLocaleString('es-AR');
 const fmtN=n=>Math.round(n).toLocaleString('es-AR');
@@ -172,7 +173,7 @@ function cargar(txt){
     return {cli:String(r[I.cli]).trim(), nro, op: tc==='NCR'? 'DEV' : tc==='NDB'? 'NDB' : 'VEN', tipo:(r[I.tipo]||'').trim(), cod:(r[I.cod]||'').trim(),
       cant:num(r[I.cant]), imp:num(r[I.imp]), rs:(r[I.rs]||'').trim(), v:parseInt(r[I.cv],10), vn:titulo(r[I.vn]), art:(r[I.art]||'').trim(),
       g:GRUPO[(r[I.prov]||'').trim().toUpperCase()]||'OTM', car:(r[I.car]||'').trim(), mot:(r[I.mot]||'').trim()}; })
-    .filter(f=>!isNaN(f.v) && /^\d{2}-\d{2}-\d{4}$/.test(f.car));
+    .filter(f=>!isNaN(f.v) && !EXCLUIR_V.has(f.v) && /^\d{2}-\d{2}-\d{4}$/.test(f.car));
 }
 
 function dibujar(){
