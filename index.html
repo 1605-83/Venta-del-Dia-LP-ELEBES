@@ -142,7 +142,7 @@ footer{margin-top:18px;font-size:.78rem;color:var(--ink2);text-align:center}
 <script>
 const REPO_RAW='https://raw.githubusercontent.com/1605-83/Reporte-Diario-Ventas/main/';
 const $=id=>document.getElementById(id);
-const EXCLUIR_V=new Set([16]);   // 16 = Vendedor Deposito (pedido de Bruno, 19/10/2026)
+const EXCLUIR_V=new Set([16,25]);   // 16 = Vendedor Deposito, 25 = Johana Vigil (pedido de Bruno, 19/10/2026)
 const fmt$=n=>'$ '+(Math.round(n*100)/100).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmt0=n=>'$ '+Math.round(n).toLocaleString('es-AR');
 const fmtN=n=>Math.round(n).toLocaleString('es-AR');
