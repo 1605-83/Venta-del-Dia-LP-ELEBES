@@ -298,6 +298,12 @@ $('limpiar').addEventListener('click',()=>{ $('fVend').value=''; $('fCli').value
     const m=html.match(/^const CFG = (.*);\s*$/m);
     if(m){ const CFG=JSON.parse(m[1]); Object.entries(CFG.nomenclador).forEach(([g,ps])=>ps.forEach(p=>GRUPO[p.trim().toUpperCase()]=g)); CFG.vendedores.forEach(v=>CFGV[v.c]=v.n); }
     try{ const r=await fetch('https://1605-83.github.io/Reporte-Diario-Ventas/carteras.json?t='+Date.now(),{cache:'no-store'}); if(r.ok) CART=await r.json(); }catch(e){}
+    if(CART&&CART.v){   // la base trae acentos mal guardados (doble codificacion: "Ã±" = "ñ", "Ã‘" = "Ñ"): se rearman los bytes y se leen como UTF-8
+      const CP={'€':128,'‚':130,'ƒ':131,'„':132,'…':133,'†':134,'‡':135,'ˆ':136,'‰':137,'Š':138,'‹':139,'Œ':140,'Ž':142,'‘':145,'’':146,'“':147,'”':148,'•':149,'–':150,'—':151,'˜':152,'™':153,'š':154,'›':155,'œ':156,'ž':158,'Ÿ':159};
+      const dec=m=>{ const b=[]; for(const ch of m){ const c=ch.charCodeAt(0); b.push(c<256? c : CP[ch]); } try{ return new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array(b)); }catch(e){ return m; } };
+      const K='[\u0080-\u00BF\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2013\u2014\u2018-\u201A\u201C-\u201E\u2020-\u2022\u2026\u2030\u2039\u203A\u20AC\u2122]', RX=new RegExp('[\\u00C2-\\u00DF]'+K+'|[\\u00E2]'+K+K,'g');   // 2 bytes (Ã±) o 3 bytes (â€˜, triple codificacion)
+      const arreglar=s=>{ for(let i=0;i<4&&RX.test(s);i++){ RX.lastIndex=0; const t=s.replace(RX,dec); if(t===s) break; s=t; } RX.lastIndex=0; return s; };
+      for(const k in CART.v) CART.v[k]=CART.v[k].map(r=>r.map(x=>typeof x==='string'? arreglar(x) : x)); }
     const arch=((await (await fetch('https://1605-83.github.io/Reporte-Diario-Ventas/archivos.json?t='+Date.now(),{cache:'no-store'})).json()).archivos||[]).filter(p=>/ventas-\d{4}-\d{2}-/.test(p)).sort();
     const ult=arch[arch.length-1]; if(!ult) throw new Error('no hay archivos de ventas');
     const st=ult.match(/-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})\d{2}/); corte= st? `${st[3]}/${st[2]}/${st[1]} ${st[4]}:${st[5]}` : '';
