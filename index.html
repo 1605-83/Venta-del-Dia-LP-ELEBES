@@ -17,6 +17,13 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:Roboto,system-ui
 .head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:16px 22px}
 .head h1{margin:0;font-size:1.45rem;font-weight:500}
 .head .meta{font-size:.9rem;color:var(--ink2);margin-top:2px}
+.head h1{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.vivo{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;font-weight:500;color:#1E7B34;background:#E8F6EC;border-radius:999px;padding:4px 11px 4px 9px;letter-spacing:.01em}
+.vivo i{width:9px;height:9px;border-radius:50%;background:#2DB34A;box-shadow:0 0 0 0 rgba(45,179,74,.55);animation:latido 2s infinite}
+.vivo.off{color:var(--ink2);background:#EEF0F3}.vivo.off i{background:#9AA1AB;animation:none}
+.vivo.nuevo{background:#D3F0DB}
+@keyframes latido{0%{box-shadow:0 0 0 0 rgba(45,179,74,.55)}70%{box-shadow:0 0 0 8px rgba(45,179,74,0)}100%{box-shadow:0 0 0 0 rgba(45,179,74,0)}}
+@media (prefers-reduced-motion:reduce){.vivo i{animation:none}}
 .head label{font-size:.85rem;color:var(--ink2);display:flex;align-items:center;gap:8px}
 select,input{font:inherit;font-size:.95rem;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%}
 .head select{width:auto}
@@ -116,7 +123,7 @@ footer{margin-top:18px;font-size:.78rem;color:var(--ink2);text-align:center}
 <body>
 <div class="wrap">
   <div class="card head">
-    <div><h1>Venta del día</h1><div class="meta" id="meta">Cargando…</div></div>
+    <div><h1>Venta del día <span class="vivo off" id="vivo" hidden><i aria-hidden="true"></i><span id="vivoTxt"></span></span></h1><div class="meta" id="meta">Cargando…</div></div>
     <label>Fecha de carga <select id="dia"></select></label>
   </div>
 
@@ -137,7 +144,7 @@ footer{margin-top:18px;font-size:.78rem;color:var(--ink2);text-align:center}
     </div>
   </div>
   <div id="tip" role="tooltip"></div>
-  <footer>Tocá los gráficos para filtrar: un día, un tipo de operación, una empresa o un cliente (tocando de nuevo se saca el filtro) · Datos de la base de Gescom · pedidos por fecha de carga, importes con IVA · se actualiza con el Reporte diario de ventas</footer>
+  <footer>Tocá los gráficos para filtrar: un día, un tipo de operación, una empresa o un cliente (tocando de nuevo se saca el filtro) · Datos de la base de Gescom · pedidos por fecha de carga, importes con IVA · el día de hoy se actualiza solo, sin recargar: la base de Gescom suma ventas cada hora en punto, de 7 a 17</footer>
 </div>
 <script>
 const REPO_RAW='https://raw.githubusercontent.com/1605-83/Reporte-Diario-Ventas/main/';
@@ -167,9 +174,9 @@ function parseCSV(t){
   return rows;
 }
 function cargar(txt){
-  const R=parseCSV(txt).filter(r=>r.length>5); const H=R.shift().map(h=>h.trim()); const ix=n=>H.indexOf(n);
+  const R=parseCSV(txt).filter(r=>r.length>5); if(!R.length) return []; const H=R.shift().map(h=>h.trim()); const ix=n=>H.indexOf(n);
   const I={cli:ix('Cliente'),nro:ix('NroComprobante'),tipo:ix('TipoDeVenta'),cod:ix('Codigo'),cant:ix('CantBase'),imp:ix('ImporteItem'),rs:ix('RazonSocial'),cv:ix('CodVendedor'),vn:ix('Vendedor'),art:ix('Articulo'),prov:ix('Proveedor'),car:ix('FechaCarga'),mot:ix('MotivoDevolucion')};
-  FILAS=R.map(r=>{ const nro=(r[I.nro]||'').trim(), tc=nro.slice(0,3).toUpperCase();
+  return R.map(r=>{ const nro=(r[I.nro]||'').trim(), tc=nro.slice(0,3).toUpperCase();
     return {cli:String(r[I.cli]).trim(), nro, op: tc==='NCR'? 'DEV' : tc==='NDB'? 'NDB' : 'VEN', tipo:(r[I.tipo]||'').trim(), cod:(r[I.cod]||'').trim(),
       cant:num(r[I.cant]), imp:num(r[I.imp]), rs:(r[I.rs]||'').trim(), v:parseInt(r[I.cv],10), vn:titulo(r[I.vn]), art:(r[I.art]||'').trim(),
       g:GRUPO[(r[I.prov]||'').trim().toUpperCase()]||'OTM', car:(r[I.car]||'').trim(), mot:(r[I.mot]||'').trim()}; })
@@ -308,19 +315,56 @@ $('limpiar').addEventListener('click',()=>{ $('fVend').value=''; $('fCli').value
     const ult=arch[arch.length-1]; if(!ult) throw new Error('no hay archivos de ventas');
     const st=ult.match(/-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})\d{2}/); corte= st? `${st[3]}/${st[2]}/${st[1]} ${st[4]}:${st[5]}` : '';
     const r=await fetch(REPO_RAW+ult.split('/').map(encodeURIComponent).join('/'),{cache:'no-store'});
-    cargar(new TextDecoder('windows-1252').decode(await r.arrayBuffer()));
-    const ymA=(ult.match(/ventas-(\d{4})-(\d{2})-/)||[]); if(ymA[1]) FILAS=FILAS.filter(x=>x.car.slice(6)===ymA[1] && x.car.slice(3,5)===ymA[2]);   // solo los dias de carga del mes del archivo
-    const ymd=d=>d.slice(6)+d.slice(3,5)+d.slice(0,2);
-    // el dia de hoy aparece siempre (aunque la base todavia no tenga pedidos cargados)
-    const hoyI=new Date(Date.now()-3*3600e3).toISOString().slice(0,10), hoyD=hoyI.slice(8)+'-'+hoyI.slice(5,7)+'-'+hoyI.slice(0,4);
-    const dias=[...new Set([...FILAS.map(x=>x.car), hoyD])].sort((a,b)=>ymd(b).localeCompare(ymd(a)));
-    $('dia').innerHTML=dias.map(d=>`<option value="${d}">${fechaDia(d).txt}</option>`).join('');
-    const vs=new Map(); FILAS.forEach(x=>{ if(!vs.has(x.v)) vs.set(x.v, CFGV[x.v]||x.vn); });
-    $('fVend').innerHTML+= [...vs].sort((a,b)=>a[0]-b[0]).map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join('');
+    MES=cargar(new TextDecoder('windows-1252').decode(await r.arrayBuffer()));
+    const ymA=(ult.match(/ventas-(\d{4})-(\d{2})-/)||[]); if(ymA[1]) MES=MES.filter(x=>x.car.slice(6)===ymA[1] && x.car.slice(3,5)===ymA[2]);   // solo los dias de carga del mes del archivo
+    corteMes=corte; FILAS=MES;
     $('fEmp').innerHTML+= Object.entries(NOMBRE_G).map(([g,n])=>`<option value="${g}">${n}</option>`).join('');
-    dibujar();
+    opciones(); dibujar();
+    await enVivo(true);
+    setInterval(enVivo, 2*60e3);   // revisa cada 2 minutos si el robot subio datos nuevos
+    document.addEventListener('visibilitychange',()=>{ if(!document.hidden) enVivo(); });
   }catch(e){ $('meta').textContent='No se pudieron leer los datos: '+e.message; }
 })();
+
+// ---- En vivo (pedido de Bruno, 20/10/2026): el robot sube vivo/hoy.csv con lo cargado hoy cada vez que la base de Gescom
+// suma ventas (cada hora en punto, de 7 a 17). La pagina lo revisa sola y redibuja sin perder filtros ni filas abiertas ----
+let MES=[], VIVO=null, corteMes='', vivoCorte='', vivoRev=null;
+const ymd=d=>d.slice(6)+d.slice(3,5)+d.slice(0,2);
+const hoyDia=()=>{ const i=new Date(Date.now()-3*3600e3).toISOString().slice(0,10); return i.slice(8)+'-'+i.slice(5,7)+'-'+i.slice(0,4); };
+const aMin=c=>{ const m=(c||'').match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/); return m? m[3]+m[2]+m[1]+m[4]+m[5] : ''; };
+function opciones(){
+  // dias: los del mes y hoy siempre (aunque la base todavia no tenga pedidos); vendedores: los que tienen operaciones
+  const hoy=hoyDia(), sel=$('dia').value, selV=$('fVend').value;
+  const dias=[...new Set([...FILAS.map(x=>x.car), hoy])].sort((a,b)=>ymd(b).localeCompare(ymd(a)));
+  $('dia').innerHTML=dias.map(d=>`<option value="${d}">${fechaDia(d).txt}</option>`).join('');
+  $('dia').value= sel && dias.includes(sel)? sel : dias[0];
+  const vs=new Map(); FILAS.forEach(x=>{ if(!vs.has(x.v)) vs.set(x.v, CFGV[x.v]||x.vn); });
+  $('fVend').innerHTML='<option value="">Todos</option>'+[...vs].sort((a,b)=>a[0]-b[0]).map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join('');
+  $('fVend').value=selV;
+}
+function marcaVivo(){
+  const b=$('vivo'), hoy=hoyDia(), vivo=!!VIVO && VIVO.dia===hoy, h=new Date(), hh=String(h.getHours()).padStart(2,'0')+':'+String(h.getMinutes()).padStart(2,'0');
+  b.hidden=false; b.classList.toggle('off',!vivo);
+  $('vivoTxt').textContent= vivo? `En vivo · datos al ${vivoCorte.slice(11)} · revisado ${hh}` : `Esperando la venta de hoy · revisado ${hh}`;
+  b.title= vivo? 'La página se actualiza sola: revisa cada 2 minutos si la base de Gescom tiene pedidos nuevos (la base los suma cada hora en punto, de 7 a 17).'
+    : 'Todavía no llegó la venta de hoy en vivo. La página revisa sola cada 2 minutos.';
+}
+async function enVivo(primera){
+  try{
+    const est=await (await fetch(REPO_RAW+'vivo/estado.json?t='+Date.now(),{cache:'no-store'})).json();
+    const hoy=hoyDia();
+    if(est.dia===hoy && est.corte!==vivoCorte){
+      const r=await fetch(REPO_RAW+'vivo/hoy.csv?t='+Date.now(),{cache:'no-store'}); if(!r.ok) throw new Error('hoy.csv '+r.status);
+      const nuevas=cargar(new TextDecoder('windows-1252').decode(await r.arrayBuffer())).filter(x=>x.car===hoy);
+      VIVO={dia:hoy}; vivoCorte=est.corte;
+      FILAS=[...MES.filter(x=>x.car!==hoy), ...nuevas];   // el dia de hoy sale del robot en vivo; el resto del mes, del archivo del mes
+      corte= aMin(vivoCorte)>aMin(corteMes)? vivoCorte : corteMes;
+      opciones(); dibujar();
+      if(!primera){ $('vivo').classList.add('nuevo'); setTimeout(()=>$('vivo').classList.remove('nuevo'),4000); }
+    } else if(est.dia!==hoy && VIVO){ VIVO=null; FILAS=MES; corte=corteMes; opciones(); dibujar(); }
+  }catch(e){ /* sin conexion o sin archivo todavia: se reintenta en la proxima vuelta */ }
+  marcaVivo();
+}
 </script>
 </body>
 </html>
