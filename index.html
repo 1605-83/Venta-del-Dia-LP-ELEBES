@@ -75,6 +75,8 @@ select,input{font:inherit;font-size:.95rem;color:var(--ink);background:#fff;bord
 .det tr.it td{background:#fff;color:#444;font-size:.85rem}
 .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;font-weight:700}
 .t-VEN{background:#E6F0FF;color:var(--azul)}.t-DEV{background:#F1E9FF;color:var(--violeta)}.t-NDB{background:#FFF1DE;color:var(--naranja)}
+.t-AX{background:#E3F7EA;color:#1E7A3C}
+.det table.axt{margin-bottom:12px}.det table.axt tfoot td{border-top:1px solid var(--line);font-weight:700;padding-top:6px}
 .nocomp{margin-top:8px;font-size:.85rem;color:#555;white-space:normal}
 .nocomp b{color:var(--rojo)}
 .vacio{padding:30px;text-align:center;color:var(--ink2)}
@@ -150,6 +152,8 @@ footer{margin-top:18px;font-size:.78rem;color:var(--ink2);text-align:center}
 const REPO_RAW='https://raw.githubusercontent.com/1605-83/Reporte-Diario-Ventas/main/';
 const $=id=>document.getElementById(id);
 const EXCLUIR_V=new Set([16,25]);   // 16 = Vendedor Deposito, 25 = Johana Vigil (pedido de Bruno, 19/10/2026)
+// los 23 vendedores de calle: los mismos que suma Rutas de vendedores, asi las dos ventas del dia dan igual (pedido de Bruno, 20/10/2026)
+const VEND23=new Set([2,4,5,6,7,24,26,27,28,29,30,51,52,53,54,56,61,62,63,64,73,74,75]);
 const fmt$=n=>'$ '+(Math.round(n*100)/100).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmt0=n=>'$ '+Math.round(n).toLocaleString('es-AR');
 const fmtN=n=>Math.round(n).toLocaleString('es-AR');
@@ -180,7 +184,7 @@ function cargar(txt){
     return {cli:String(r[I.cli]).trim(), nro, op: tc==='NCR'? 'DEV' : tc==='NDB'? 'NDB' : 'VEN', tipo:(r[I.tipo]||'').trim(), cod:(r[I.cod]||'').trim(),
       cant:num(r[I.cant]), imp:num(r[I.imp]), rs:(r[I.rs]||'').trim(), v:parseInt(r[I.cv],10), vn:titulo(r[I.vn]), art:(r[I.art]||'').trim(),
       g:GRUPO[(r[I.prov]||'').trim().toUpperCase()]||'OTM', car:(r[I.car]||'').trim(), mot:(r[I.mot]||'').trim()}; })
-    .filter(f=>!isNaN(f.v) && !EXCLUIR_V.has(f.v) && /^\d{2}-\d{2}-\d{4}$/.test(f.car));
+    .filter(f=>!isNaN(f.v) && !EXCLUIR_V.has(f.v) && VEND23.has(f.v) && /^\d{2}-\d{2}-\d{4}$/.test(f.car));
 }
 
 function dibujar(){
@@ -200,18 +204,28 @@ function dibujar(){
   for(const v of V.values()){ const c=CART&&CART.v&&CART.v[String(v.c)];
     v.ruta= c&&letra? c.filter(k=>k[5]===letra) : null;
     v.nc= v.ruta? v.ruta.filter(k=>!v.compra.has(String(k[0]))) : null; }
+  // hoy, sin filtros de operacion/empresa/cliente: el total de cada vendedor sale de Axum en vivo (igual que Rutas de vendedores)
+  const axOk= !!AX && AX.dia===dia && !fo && !fe && !fc;
+  if(axOk) for(const [c,a] of Object.entries(AX.vend)){ if(fv && c!==fv) continue;
+    const v=V.get(+c)||(V.set(+c,{c:+c,n:CFGV[c]||a.n||('Vendedor '+c),tot:0,ops:new Map(),cli:new Set(),compra:new Set()}),V.get(+c)); v.tot=a.total; v.ax=a;
+    // los clientes con pedido en Axum cuentan como compradores aunque Gescom todavia no los tenga
+    if(a.clientes) for(const [k,x] of a.clientes) if(x.total>0){ v.cli.add(k); v.compra.add(k); } }
+  if(axOk) for(const v of V.values()) if(!AX.vend[v.c]){ v.tot=0; v.ax={total:0,ops:0,cant:0}; }
+  if(axOk) for(const v of V.values()){ const c=CART&&CART.v&&CART.v[String(v.c)]; v.ruta= c&&letra? c.filter(k=>k[5]===letra) : null; v.nc= v.ruta? v.ruta.filter(k=>!v.compra.has(String(k[0]))) : null; }
   if(fv && !V.has(+fv) && CART && CART.v && CART.v[fv] && !fo && !fe && !fc){   // vendedor sin operaciones en el dia
     const ruta=CART.v[fv].filter(k=>k[5]===letra); V.set(+fv,{c:+fv,n:CFGV[fv]||('Vendedor '+fv),tot:0,ops:new Map(),cli:new Set(),compra:new Set(),ruta,nc:ruta}); }
   // indicadores
-  const venta=D.filter(x=>x.op==='VEN').reduce((a,x)=>a+x.imp,0), dev=-D.filter(x=>x.op==='DEV').reduce((a,x)=>a+x.imp,0), ndb=D.filter(x=>x.op==='NDB').reduce((a,x)=>a+x.imp,0);
+  const venta= axOk? [...V.values()].reduce((a,v)=>a+v.tot,0) : D.filter(x=>x.op==='VEN').reduce((a,x)=>a+x.imp,0), dev=-D.filter(x=>x.op==='DEV').reduce((a,x)=>a+x.imp,0), ndb=D.filter(x=>x.op==='NDB').reduce((a,x)=>a+x.imp,0);
   const ops=[...V.values()].flatMap(v=>[...v.ops.values()]);
   const nPed=ops.filter(o=>o.op==='VEN').length, nDev=ops.filter(o=>o.op==='DEV').length, nNdb=ops.filter(o=>o.op==='NDB').length;
-  const comp=new Set(D.filter(x=>x.op==='VEN').map(x=>x.cli));
+  const comp= axOk? new Set([...V.values()].flatMap(v=>[...v.compra])) : new Set(D.filter(x=>x.op==='VEN').map(x=>x.cli));
   const noComp=[...V.values()].reduce((a,v)=>a+(v.nc? v.nc.length : 0),0);
   const arts=new Set(D.filter(x=>x.op==='VEN').map(x=>x.cod));
   const mixC={}; D.filter(x=>x.op==='VEN').forEach(x=>(mixC[x.cli]||(mixC[x.cli]=new Set())).add(x.cod));
   const mix=comp.size? Object.values(mixC).reduce((a,s)=>a+s.size,0)/comp.size : 0;
   const porCli={}, rsCli={}; D.filter(x=>x.op==='VEN').forEach(x=>{ porCli[x.cli]=(porCli[x.cli]||0)+x.imp; rsCli[x.cli]=x.rs; });
+  if(axOk){ for(const k in porCli) delete porCli[k];   // hoy: el top sale de los pedidos de Axum en vivo
+    for(const v of V.values()) if(v.ax&&v.ax.clientes) for(const [k,x] of v.ax.clientes){ porCli[k]=(porCli[k]||0)+x.total; rsCli[k]=rsCli[k]||x.rs; } }
   const top=Object.entries(porCli).sort((a,b)=>b[1]-a[1]).slice(0,5), topP=venta? top.reduce((a,t)=>a+t[1],0)/venta : 0;
   // ---- graficos de los indicadores: cada uno se arma sin su propio filtro, asi se ven todas las opciones y la elegida resalta
   const sin=skip=>FILAS.filter(x=>x.car===dia && (skip==='v'||!fv||String(x.v)===fv) && (skip==='o'||!fo||x.op===fo) && (skip==='e'||!fe||x.g===fe) && (!fc||x.cli===fc||x.rs.toLowerCase().includes(fc)));
@@ -237,15 +251,16 @@ function dibujar(){
   // top 5 clientes (barras; tocar filtra el cliente)
   const maxT=Math.max(1,...top.map(t=>t[1]));
   $('kpis').innerHTML=`
-    <div class="kpi"><div class="l">$ Total preventa</div><div class="v">${fmt0(venta)}</div><div class="n"><span>Devoluciones <b>${fmt0(dev)}</b></span>${ndb? `<span>Notas de débito <b>${fmt0(ndb)}</b></span>` : ''}</div>${gDias}</div>
+    <div class="kpi"><div class="l">$ Total preventa${axOk? ' · Axum en vivo' : ''}</div><div class="v">${fmt0(venta)}</div><div class="n">${axOk? `<span>23 vendedores · ${fmtN([...V.values()].reduce((a,v)=>a+(v.ax? v.ax.ops : 0),0))} operaciones en Axum</span>` : ''}<span>Devoluciones <b>${fmt0(dev)}</b></span>${ndb? `<span>Notas de débito <b>${fmt0(ndb)}</b></span>` : ''}</div>${gDias}</div>
     <div class="kpi"><div class="l">Operaciones</div><div class="gfila">${gOps}<div class="n col">${seg.map(s=>`<button type="button" class="ley${fo===s[0]?' sel':''}" data-op="${s[0]}"><i class="dot" style="background:${s[2]}"></i><b>${s[3]}</b> ${s[1]}</button>`).join('')}</div></div></div>
     <div class="kpi"><div class="l">Compradores</div><div class="gfila">${gComp}<div class="n col"><span><i class="dot" style="background:var(--verde)"></i><b>${fmtN(comp.size)}</b> compradores</span>${CART? `<button type="button" class="ley${sortK==='nc'?' sel':''}" data-nc="n"><i class="dot" style="background:var(--rojo)"></i><b class="rojo">${fmtN(noComp)}</b> no compradores</button><span>Ruta del ${DIAS[f.getDay()]}: ${fmtN(rutaT)} clientes</span>` : ''}</div></div></div>
     <div class="kpi"><div class="l"><span>Venta por empresa</span><span>${fmtN(arts.size)} artículos · mix ${mix.toLocaleString('es-AR',{maximumFractionDigits:1})}</span></div>${gEmp}</div>
     <div class="kpi"><div class="l"><span>★ Top 5 clientes</span><span>${Math.round(topP*100)}% del total</span></div>
       <div class="hb">${top.map((t,i)=>`<button type="button" class="hrow cli${fc===t[0]?' sel':''}" data-cli="${esc(t[0])}" data-tip="${esc(t[0])} ${esc(rsCli[t[0]])}: ${fmt0(t[1])}"><span class="pos">${i+1}</span><span class="hn">${esc(titulo(rsCli[t[0]])||t[0])}</span><span class="hbar"><i style="width:${t[1]/maxT*100}%;background:#B8860B"></i></span><span class="hv">${fmt0(t[1])}</span></button>`).join('')||'<span class="mut">Sin ventas</span>'}</div></div>`;
-  $('meta').textContent=`Fecha de carga ${txt} · ${fmtN(ops.length)} operaciones · datos al ${corte}`;
+  $('meta').textContent=`Fecha de carga ${txt} · `+(axOk? `total de Axum en vivo (${AX.hora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}) · detalle de Gescom al ${corte}` : `${fmtN(ops.length)} operaciones · datos al ${corte}`);
   // lista por vendedor
-  const val={c:v=>v.c, n:v=>v.n, cli:v=>v.cli.size, ops:v=>v.ops.size, nc:v=>v.nc? v.nc.length : -1, tot:v=>v.tot};
+  const nOps=v=>v.ax? Math.max(v.ax.ops,v.ops.size) : v.ops.size;   // hoy: las operaciones de Axum (Gescom las suma despues)
+  const val={c:v=>v.c, n:v=>v.n, cli:v=>v.cli.size, ops:nOps, nc:v=>v.nc? v.nc.length : -1, tot:v=>v.tot};
   const L=[...V.values()].sort((a,b)=>{ const A=val[sortK](a), B=val[sortK](b); return (A>B?1:A<B?-1:0)*sortD; });
   document.querySelectorAll('.th span[data-k]').forEach(s=>{ s.textContent=s.textContent.replace(/ [▲▼]$/,'')+(s.dataset.k===sortK? (sortD>0?' ▲':' ▼') : ''); });
   let h='';
@@ -253,10 +268,10 @@ function dibujar(){
     h+=`<div class="vrow${ab?' ab':''}" data-v="${v.c}" role="button" tabindex="0" aria-expanded="${ab}"><span class="chev">›</span><span class="av">${esc(iniciales(v.n))}</span>
       <span class="vn"><span class="cod">${v.c}</span>${esc(v.n)}</span>
       <span class="r mut cl"><b>${v.cli.size}</b> ${v.cli.size===1?'cliente':'clientes'}</span>
-      <span class="r mut op2"><b>${v.ops.size}</b> ${v.ops.size===1?'operación':'operaciones'}</span>
+      <span class="r mut op2"><b>${nOps(v)}</b> ${nOps(v)===1?'operación':'operaciones'}</span>
       <span class="r mut nc">${v.nc? `<b class="rojo">${v.nc.length}</b> de ${v.ruta.length}` : '—'}</span>
       <span class="r tot">${fmt$(v.tot)}</span>
-      <span class="mut resm">${v.cli.size} clientes · ${v.ops.size} operaciones${v.nc? ` · ${v.nc.length} no compra` : ''}</span></div>`;
+      <span class="mut resm">${v.cli.size} clientes · ${nOps(v)} operaciones${v.nc? ` · ${v.nc.length} no compra` : ''}</span></div>`;
     if(ab) h+=detalle(v);
   }
   $('filas').innerHTML=h||(FILAS.some(x=>x.car===dia)? '<div class="vacio">No hay operaciones cargadas para este día con estos filtros.</div>'
@@ -265,12 +280,18 @@ function dibujar(){
 
 function detalle(v){
   const ops=[...v.ops.values()].sort((a,b)=>b.tot-a.tot);
-  let t=`<div class="det"><table><thead><tr><th></th><th>Comprobante</th><th>Cliente</th><th>Operación</th><th class="r">Artículos</th><th class="r">Importe</th></tr></thead><tbody>`;
+  let t='<div class="det">';
+  // pedidos de hoy en Axum Preventa por cliente (en vivo): los que todavia no estan en Gescom se marcan
+  if(v.ax&&v.ax.clientes&&v.ax.clientes.size){ const enG=new Set(ops.map(o=>o.cli)), L=[...v.ax.clientes].sort((a,b)=>b[1].total-a[1].total);
+    t+=`<table class="axt"><thead><tr><th></th><th>Axum en vivo</th><th>Cliente</th><th>Estado</th><th class="r">Pedidos</th><th class="r">Importe</th></tr></thead><tbody>`
+      + L.map(([k,x])=>`<tr><td></td><td><span class="tag t-AX">Axum</span></td><td>${esc(k)} · ${esc(titulo(x.rs))}</td><td>${enG.has(k)? '<span class="mut">ya en Gescom</span>' : '<b>todavía no en Gescom</b>'}</td><td class="r">${fmtN(x.ops)}</td><td class="r"><b>${fmt$(x.total)}</b></td></tr>`).join('')
+      + `</tbody><tfoot><tr><td></td><td colspan="3">Total Axum · ${fmtN(v.ax.clientes.size)} clientes</td><td class="r">${fmtN(v.ax.ops)}</td><td class="r"><b>${fmt$(v.ax.total)}</b></td></tr></tfoot></table>`; }
+  t+=`<table><thead><tr><th></th><th>Comprobante</th><th>Cliente</th><th>Operación</th><th class="r">Artículos</th><th class="r">Importe</th></tr></thead><tbody>`;
   for(const o of ops){ const k=v.c+'|'+o.nro, ab=opsAb.has(k);
     t+=`<tr class="op" data-op="${esc(k)}"><td>${ab?'−':'+'}</td><td>${esc(o.nro)}</td><td>${esc(o.cli)} · ${esc(titulo(o.rs))}</td><td><span class="tag t-${o.op}">${o.op==='VEN'?'Pedido':o.op==='DEV'?'Devolución':'Nota de débito'}</span>${o.mot? ` <span class="mut">${esc(o.mot)}</span>` : ''}</td><td class="r">${o.it.length}</td><td class="r"><b>${fmt$(o.tot)}</b></td></tr>`;
     if(ab) for(const i of o.it) t+=`<tr class="it"><td></td><td>${esc(i.cod)}</td><td colspan="2">${esc(i.art)} <span class="mut">· ${NOMBRE_G[i.g]||i.g}</span></td><td class="r">${i.cant.toLocaleString('es-AR')}</td><td class="r">${fmt$(i.imp)}</td></tr>`;
   }
-  if(!ops.length) t+='<tr><td colspan="6" class="mut">Sin operaciones en el día.</td></tr>';
+  if(!ops.length) t+=`<tr><td colspan="6" class="mut">${v.ax&&v.ax.clientes&&v.ax.clientes.size? 'Gescom todavía no tiene los comprobantes de hoy.' : 'Sin operaciones en el día.'}</td></tr>`;
   t+='</tbody></table>';
   if(v.nc && v.nc.length) t+=`<div class="nocomp"><b>${v.nc.length} no compradores</b> de la ruta del día: ${v.nc.map(k=>esc(k[0])+' '+esc(titulo(k[1]))).join(' · ')}</div>`;
   return t+'</div>';
@@ -322,6 +343,8 @@ $('limpiar').addEventListener('click',()=>{ $('fVend').value=''; $('fCli').value
     opciones(); dibujar();
     await enVivo(true);
     setInterval(enVivo, 2*60e3);   // revisa cada 2 minutos si el robot subio datos nuevos
+    await cargarAx(); dibujar(); marcaVivo(); programarAx();   // total en vivo de Axum, en los mismos minutos que Rutas
+    setInterval(marcaVivo, 1000);
     document.addEventListener('visibilitychange',()=>{ if(!document.hidden) enVivo(); });
   }catch(e){ $('meta').textContent='No se pudieron leer los datos: '+e.message; }
 })();
@@ -342,10 +365,52 @@ function opciones(){
   $('fVend').innerHTML='<option value="">Todos</option>'+[...vs].sort((a,b)=>a[0]-b[0]).map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join('');
   $('fVend').value=selV;
 }
+// ---- Venta en vivo de Axum Preventa: la MISMA consulta que hace Rutas de vendedores (mismo servicio y misma direccion,
+// asi el servicio devuelve la misma respuesta) y en los MISMOS minutos del reloj (:00, :05, :10... y 20 segundos) ----
+const GPS_URL='https://gps-rutas-elebes.bruno-4d7.workers.dev';
+const CADA_AX=5*60e3, DESFASE_AX=20e3;
+const proxMarca=()=>Math.floor((Date.now()-DESFASE_AX)/CADA_AX)*CADA_AX+CADA_AX+DESFASE_AX;
+let AX=null, proxAx=0, axErr='';
+const axCache={};   // clientes de cada vendedor: se vuelven a pedir solo si cambiaron sus operaciones o su total
+// lectura de Axum: primero la ruta publica /ventas; si el servicio pide clave, se usa la clave del panel que ya
+// guardo Rutas de vendedores en este navegador (mismo sitio) con la ruta /prev, que lee la misma pantalla de Pedidos
+async function leerAx(wm,q){
+  const r=await fetch(`${GPS_URL}/ventas?webmethod=${wm}&${q}`,{cache:'no-store'}); const j=await r.json().catch(()=>({}));
+  if(r.ok&&j.ok) return j.datos;
+  let clave=''; try{ clave=localStorage.getItem('rutas-clave')||sessionStorage.getItem('rutas-clave')||''; }catch(e){}
+  if(!clave) throw new Error(j.error||('error '+r.status));
+  const r2=await fetch(`${GPS_URL}/prev?cmd=v5_Pedidos&webmethod=${wm}&${q}`,{headers:{'X-Clave':clave},cache:'no-store'}); const j2=await r2.json().catch(()=>({}));
+  if(!r2.ok||!j2.ok) throw new Error(j2.error||('error '+r2.status));
+  return j2.datos;
+}
+async function cargarAx(){
+  const hoy=hoyDia(), f=encodeURIComponent(hoy.replace(/-/g,'/')), q=`fechaPedidoDesde=${f}&fechaPedidoHasta=${f}`;
+  try{
+    const d=await leerAx('SelectVendedoresAgrupados',q), vend={}, pend=[];
+    for(const v of ((d&&d.vendedores)||[])){ const c=parseInt(v.vendedorId,10); if(!VEND23.has(c)) continue;
+      const ops=+v.operaciones||0, tot=+v.total||0, ant=axCache[hoy+'|'+c];
+      vend[c]={total:tot,ops,cant:+v.cantClientes||0,n:v.nombre||'',clientes: ant&&ant.ops===ops&&ant.tot===tot? ant.clientes : null};
+      if(!vend[c].clientes) pend.push(c); }
+    // pedidos de cada vendedor por cliente (pantalla "Pedidos agrupados" de Axum), de a 4 vendedores por vez
+    for(let i=0;i<pend.length;i+=4) await Promise.all(pend.slice(i,i+4).map(async c=>{
+      const r=await leerAx('SelectClientesDeVendedor',`vendedor=${c}&`+q).catch(()=>null), cl=new Map();
+      for(const x of (Array.isArray(r)? r : [])){ const k=String(parseInt(x.clienteId,10)||String(x.clienteId??'').trim()); cl.set(k,{total:+x.total||0,ops:+x.operaciones||0,rs:x.razonSocial||''}); }
+      vend[c].clientes= r? cl : null; if(r) axCache[hoy+'|'+c]={ops:vend[c].ops,tot:vend[c].total,clientes:cl}; }));
+    AX={dia:hoy,vend,hora:new Date()}; axErr='';
+  }catch(e){ axErr=e.message; /* sin servicio: queda la ultima lectura o el total de Gescom */ }
+}
+function programarAx(){ proxAx=proxMarca(); setTimeout(async()=>{ if(!document.hidden){ await cargarAx(); dibujar(); } programarAx(); }, proxAx-Date.now()); }
+document.addEventListener('visibilitychange',async()=>{ if(!document.hidden && AX && Date.now()-AX.hora>CADA_AX){ await cargarAx(); dibujar(); } });
 function marcaVivo(){
   const b=$('vivo'), hoy=hoyDia(), vivo=!!VIVO && VIVO.dia===hoy, h=new Date(), hh=String(h.getHours()).padStart(2,'0')+':'+String(h.getMinutes()).padStart(2,'0');
-  b.hidden=false; b.classList.toggle('off',!vivo);
+  b.hidden=false;
+  if(AX && AX.dia===hoy && $('dia').value===hoy){   // con Axum: hora de la lectura y cuenta regresiva (igual que Rutas)
+    const falta=Math.max(0,proxAx-Date.now()), mm=Math.floor(falta/60000), ss=Math.floor(falta%60000/1000), ha=AX.hora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    b.classList.remove('off'); $('vivoTxt').textContent=`En vivo · Axum ${ha} · próxima en ${mm}:${String(ss).padStart(2,'0')}`;
+    b.title='El total sale de Axum Preventa cada 5 minutos, en los mismos minutos que Rutas de vendedores. El detalle de comprobantes sale de Gescom.'; return; }
+  b.classList.toggle('off',!vivo);
   $('vivoTxt').textContent= vivo? `En vivo · datos al ${vivoCorte.slice(11)} · revisado ${hh}` : `Esperando la venta de hoy · revisado ${hh}`;
+  if(axErr && $('dia').value===hoy){ $('vivoTxt').textContent+=' · Axum sin conexión'; b.title='No se pudo leer Axum ('+axErr+'): se muestra la venta de Gescom. '+b.title; }
   b.title= vivo? 'La página se actualiza sola: revisa cada 2 minutos si la base de Gescom tiene pedidos nuevos (la base los suma cada hora en punto, de 7 a 17).'
     : 'Todavía no llegó la venta de hoy en vivo. La página revisa sola cada 2 minutos.';
 }
