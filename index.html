@@ -389,11 +389,11 @@ async function cargarAx(){
     const d=await leerAx('SelectVendedoresAgrupados',q), vend={}, pend=[];
     for(const v of ((d&&d.vendedores)||[])){ const c=parseInt(v.vendedorId,10); if(!VEND23.has(c)) continue;
       const ops=+v.operaciones||0, tot=+v.total||0, ant=axCache[hoy+'|'+c];
-      vend[c]={total:tot,ops,cant:+v.cantClientes||0,n:v.nombre||'',clientes: ant&&ant.ops===ops&&ant.tot===tot? ant.clientes : null};
+      vend[c]={id:String(v.vendedorId),total:tot,ops,cant:+v.cantClientes||0,n:v.nombre||'',clientes: ant&&ant.ops===ops&&ant.tot===tot? ant.clientes : null};
       if(!vend[c].clientes) pend.push(c); }
     // pedidos de cada vendedor por cliente (pantalla "Pedidos agrupados" de Axum), de a 4 vendedores por vez
     for(let i=0;i<pend.length;i+=4) await Promise.all(pend.slice(i,i+4).map(async c=>{
-      const r=await leerAx('SelectClientesDeVendedor',`vendedor=${c}&`+q).catch(()=>null), cl=new Map();
+      const r=await leerAx('SelectClientesDeVendedor',`vendedor=${encodeURIComponent(vend[c].id)}&`+q)   /* el codigo tal como lo da Axum ("051"): con "51" devuelve vacio */.catch(()=>null), cl=new Map();
       for(const x of (Array.isArray(r)? r : [])){ const k=String(parseInt(x.clienteId,10)||String(x.clienteId??'').trim()); cl.set(k,{total:+x.total||0,ops:+x.operaciones||0,rs:x.razonSocial||''}); }
       vend[c].clientes= r? cl : null; if(r) axCache[hoy+'|'+c]={ops:vend[c].ops,tot:vend[c].total,clientes:cl}; }));
     AX={dia:hoy,vend,hora:new Date()}; axErr='';
