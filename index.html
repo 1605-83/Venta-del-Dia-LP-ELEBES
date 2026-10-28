@@ -110,7 +110,10 @@ select,input{font:inherit;font-size:.95rem;color:var(--ink);background:#fff;bord
 .ley:hover,.ley.sel{background:#EEF3FF!important}
 .hb{display:flex;flex-direction:column;gap:5px;margin-top:10px}
 .hrow{display:grid!important;grid-template-columns:72px 1fr auto;align-items:center;gap:8px;font-size:.82rem;border-radius:6px!important;padding:2px 4px!important}
-.hrow.cli{grid-template-columns:18px 86px 1fr auto}
+.hrow.cli{grid-template-columns:18px minmax(0,1.6fr) minmax(30px,.7fr) auto}
+.hrow.cli .hn{line-height:1.15}
+.hrow .hv2{display:block;color:#7A8290;font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hrow .hv2 .cod{font-size:.9em;margin-right:4px;padding:0 5px}
 .hrow:hover,.hrow.sel{background:#EEF3FF!important}.hrow.apag{opacity:.4}
 .hrow .hn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#444}
 .hrow .hbar{height:9px;background:#EEF0F3;border-radius:5px;overflow:hidden;min-width:30px}
@@ -223,10 +226,13 @@ function dibujar(){
   const arts=new Set(D.filter(x=>x.op==='VEN').map(x=>x.cod));
   const mixC={}; D.filter(x=>x.op==='VEN').forEach(x=>(mixC[x.cli]||(mixC[x.cli]=new Set())).add(x.cod));
   const mix=comp.size? Object.values(mixC).reduce((a,s)=>a+s.size,0)/comp.size : 0;
-  const porCli={}, rsCli={}; D.filter(x=>x.op==='VEN').forEach(x=>{ porCli[x.cli]=(porCli[x.cli]||0)+x.imp; rsCli[x.cli]=x.rs; });
-  if(axOk){ for(const k in porCli) delete porCli[k];   // hoy: el top sale de los pedidos de Axum en vivo
-    for(const v of V.values()) if(v.ax&&v.ax.clientes) for(const [k,x] of v.ax.clientes){ porCli[k]=(porCli[k]||0)+x.total; rsCli[k]=rsCli[k]||x.rs; } }
-  const top=Object.entries(porCli).sort((a,b)=>b[1]-a[1]).slice(0,5), topP=venta? top.reduce((a,t)=>a+t[1],0)/venta : 0;
+  const porCli={}, rsCli={}, venCli={};   // venCli: de que vendedor es cada cliente (el que mas le vendio en el dia)
+  const sumaV=(k,v,imp)=>{ const o=venCli[k]||(venCli[k]={}); o[v]=(o[v]||0)+imp; };
+  D.filter(x=>x.op==='VEN').forEach(x=>{ porCli[x.cli]=(porCli[x.cli]||0)+x.imp; rsCli[x.cli]=x.rs; sumaV(x.cli,x.v,x.imp); });
+  if(axOk){ for(const k in porCli) delete porCli[k]; for(const k in venCli) delete venCli[k];   // hoy: el top sale de los pedidos de Axum en vivo
+    for(const v of V.values()) if(v.ax&&v.ax.clientes) for(const [k,x] of v.ax.clientes){ porCli[k]=(porCli[k]||0)+x.total; rsCli[k]=rsCli[k]||x.rs; sumaV(k,v.c,x.total); } }
+  const vendDe=k=>{ const o=venCli[k]||{}, c=Object.keys(o).sort((a,b)=>o[b]-o[a])[0]; return c? {c, n:CFGV[c]||''} : null; };
+  const top=Object.entries(porCli).sort((a,b)=>b[1]-a[1]).slice(0,10), topP=venta? top.reduce((a,t)=>a+t[1],0)/venta : 0;
   // ---- graficos de los indicadores: cada uno se arma sin su propio filtro, asi se ven todas las opciones y la elegida resalta
   const sin=skip=>FILAS.filter(x=>x.car===dia && (skip==='v'||!fv||String(x.v)===fv) && (skip==='o'||!fo||x.op===fo) && (skip==='e'||!fe||x.g===fe) && (!fc||x.cli===fc||x.rs.toLowerCase().includes(fc)));
   // venta por dia del mes (barras; tocar un dia lo elige)
@@ -255,8 +261,8 @@ function dibujar(){
     <div class="kpi"><div class="l">Operaciones</div><div class="gfila">${gOps}<div class="n col">${seg.map(s=>`<button type="button" class="ley${fo===s[0]?' sel':''}" data-op="${s[0]}"><i class="dot" style="background:${s[2]}"></i><b>${s[3]}</b> ${s[1]}</button>`).join('')}</div></div></div>
     <div class="kpi"><div class="l">Compradores</div><div class="gfila">${gComp}<div class="n col"><span><i class="dot" style="background:var(--verde)"></i><b>${fmtN(comp.size)}</b> compradores</span>${CART? `<button type="button" class="ley${sortK==='nc'?' sel':''}" data-nc="n"><i class="dot" style="background:var(--rojo)"></i><b class="rojo">${fmtN(noComp)}</b> no compradores</button><span>Ruta del ${DIAS[f.getDay()]}: ${fmtN(rutaT)} clientes</span>` : ''}</div></div></div>
     <div class="kpi"><div class="l"><span>Venta por empresa</span><span>${fmtN(arts.size)} artículos · mix ${mix.toLocaleString('es-AR',{maximumFractionDigits:1})}</span></div>${gEmp}</div>
-    <div class="kpi"><div class="l"><span>★ Top 5 clientes</span><span>${Math.round(topP*100)}% del total</span></div>
-      <div class="hb">${top.map((t,i)=>`<button type="button" class="hrow cli${fc===t[0]?' sel':''}" data-cli="${esc(t[0])}" data-tip="${esc(t[0])} ${esc(rsCli[t[0]])}: ${fmt0(t[1])}"><span class="pos">${i+1}</span><span class="hn">${esc(titulo(rsCli[t[0]])||t[0])}</span><span class="hbar"><i style="width:${t[1]/maxT*100}%;background:#B8860B"></i></span><span class="hv">${fmt0(t[1])}</span></button>`).join('')||'<span class="mut">Sin ventas</span>'}</div></div>`;
+    <div class="kpi"><div class="l"><span>★ Top 10 clientes del día</span><span>${Math.round(topP*100)}% del total</span></div>
+      <div class="hb">${top.map((t,i)=>`<button type="button" class="hrow cli${fc===t[0]?' sel':''}" data-cli="${esc(t[0])}" data-tip="${esc(t[0])} ${esc(rsCli[t[0]])}${vendDe(t[0])? ' · vendedor '+esc(vendDe(t[0]).c+' '+vendDe(t[0]).n) : ''}: ${fmt0(t[1])}"><span class="pos">${i+1}</span><span class="hn">${esc(titulo(rsCli[t[0]])||t[0])}${vendDe(t[0])? `<small class="hv2"><span class="cod">${esc(vendDe(t[0]).c)}</span>${esc(vendDe(t[0]).n)}</small>` : ''}</span><span class="hbar"><i style="width:${t[1]/maxT*100}%;background:#B8860B"></i></span><span class="hv">${fmt0(t[1])}</span></button>`).join('')||'<span class="mut">Sin ventas</span>'}</div></div>`;
   $('meta').textContent=`Fecha de carga ${txt} · `+(axOk? `total de Axum en vivo (${AX.hora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}) · detalle de Gescom al ${corte}` : `${fmtN(ops.length)} operaciones · datos al ${corte}`);
   // lista por vendedor
   const nOps=v=>v.ax? Math.max(v.ax.ops,v.ops.size) : v.ops.size;   // hoy: las operaciones de Axum (Gescom las suma despues)
