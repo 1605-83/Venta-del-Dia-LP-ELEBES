@@ -156,7 +156,7 @@ const REPO_RAW='https://raw.githubusercontent.com/1605-83/Reporte-Diario-Ventas/
 const $=id=>document.getElementById(id);
 const EXCLUIR_V=new Set([16,25]);   // 16 = Vendedor Deposito, 25 = Johana Vigil (pedido de Bruno, 19/10/2026)
 // los 23 vendedores de calle: los mismos que suma Rutas de vendedores, asi las dos ventas del dia dan igual (pedido de Bruno, 20/10/2026)
-const VEND23=new Set([2,4,5,6,7,24,26,27,28,29,30,51,52,53,54,56,61,62,63,64,73,74,75]);
+const VEND23=new Set([2,4,5,6,7,24,26,27,28,29,30,51,52,53,54,56,61,62,63,64,73,74,75,76]);   // 76 sumado (pedido de Bruno, 13/11/2026)
 const fmt$=n=>'$ '+(Math.round(n*100)/100).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmt0=n=>'$ '+Math.round(n).toLocaleString('es-AR');
 const fmtN=n=>Math.round(n).toLocaleString('es-AR');
@@ -257,7 +257,7 @@ function dibujar(){
   // top 5 clientes (barras; tocar filtra el cliente)
   const maxT=Math.max(1,...top.map(t=>t[1]));
   $('kpis').innerHTML=`
-    <div class="kpi"><div class="l">$ Total preventa${axOk? ' · Axum en vivo' : ''}</div><div class="v">${fmt0(venta)}</div><div class="n">${axOk? `<span>23 vendedores · ${fmtN([...V.values()].reduce((a,v)=>a+(v.ax? v.ax.ops : 0),0))} operaciones en Axum</span>` : ''}<span>Devoluciones <b>${fmt0(dev)}</b></span>${ndb? `<span>Notas de débito <b>${fmt0(ndb)}</b></span>` : ''}</div>${gDias}</div>
+    <div class="kpi"><div class="l">$ Total preventa${axOk? ' · Axum en vivo' : ''}</div><div class="v">${fmt0(venta)}</div><div class="n">${axOk? `<span>${VEND23.size} vendedores · ${fmtN([...V.values()].reduce((a,v)=>a+(v.ax? v.ax.ops : 0),0))} operaciones en Axum</span>` : ''}<span>Devoluciones <b>${fmt0(dev)}</b></span>${ndb? `<span>Notas de débito <b>${fmt0(ndb)}</b></span>` : ''}</div>${gDias}</div>
     <div class="kpi"><div class="l">Operaciones</div><div class="gfila">${gOps}<div class="n col">${seg.map(s=>`<button type="button" class="ley${fo===s[0]?' sel':''}" data-op="${s[0]}"><i class="dot" style="background:${s[2]}"></i><b>${s[3]}</b> ${s[1]}</button>`).join('')}</div></div></div>
     <div class="kpi"><div class="l">Compradores</div><div class="gfila">${gComp}<div class="n col"><span><i class="dot" style="background:var(--verde)"></i><b>${fmtN(comp.size)}</b> compradores</span>${CART? `<button type="button" class="ley${sortK==='nc'?' sel':''}" data-nc="n"><i class="dot" style="background:var(--rojo)"></i><b class="rojo">${fmtN(noComp)}</b> no compradores</button><span>Ruta del ${DIAS[f.getDay()]}: ${fmtN(rutaT)} clientes</span>` : ''}</div></div></div>
     <div class="kpi"><div class="l"><span>Venta por empresa</span><span>${fmtN(arts.size)} artículos · mix ${mix.toLocaleString('es-AR',{maximumFractionDigits:1})}</span></div>${gEmp}</div>
